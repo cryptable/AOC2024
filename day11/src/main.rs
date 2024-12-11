@@ -43,14 +43,16 @@ fn day11_1(filename: &str, blinks: u32) {
     }
     println!("Number of stones {}", result);
 }
+const CACHE_LEVEL: u32 = 37;
 
 fn count_stones_cache(level: u32, stone: u64, result: &mut u128, cache: &HashMap<u64, u128>) {
-    if level == 35 && cache.contains_key(&stone) {
+    if level == CACHE_LEVEL && cache.contains_key(&stone) {
 //        println!("Get from cache {} result {}", stone, cache.get(&stone).unwrap());
         *result += cache.get(&stone).unwrap();
         return
     }
     if level == 0 {
+        println!("Not Cached");
         return
     }
     if stone == 0 {
@@ -88,10 +90,10 @@ fn day11_2(filename: &str, blinks: u32, nbr_threads: usize) {
         let local_tx = tx.clone();
         thread::spawn(move || {
             let mut local_cache: HashMap<u64, u128> = HashMap::new();
-            for i in (local_t..809600).step_by(nbr_threads) {
+            for i in (local_t..80960).step_by(nbr_threads) {
                 let mut result = 0;
                 println!("{}", i);
-                count_stones(35, i.try_into().unwrap(), &mut result);
+                count_stones(CACHE_LEVEL, i.try_into().unwrap(), &mut result);
                 local_cache.insert(i.try_into().unwrap(), result);
             }
             println!("Finished cache {}", local_t);
@@ -127,7 +129,9 @@ fn main() {
     // day11_1("test1.txt", 6);
     // day11_1("test1.txt", 25);
     // day11_1("input.txt", 25);
-    day11_2("input.txt", 75, 24);
+    // day11_2("test1.txt", 25, 8);
+    // day11_2("input.txt", 25, 8);
+    day11_2("input.txt", 75, 8);
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
