@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 use std::thread;
+use std::sync::mpsc;
 
 fn count_stones(level: u32, stone: u64, result: &mut u128) {
     if level == 0 {
@@ -43,9 +44,9 @@ fn day11_1(filename: &str, blinks: u32) {
     println!("Number of stones {}", result);
 }
 
-fn count_stones_cache(level: u32, stone: u64, result: &mut u128, cache: &mut HashMap<u64, u128>) {
+fn count_stones_cache(level: u32, stone: u64, result: &mut u128, cache: &HashMap<u64, u128>) {
     if level == 35 && cache.contains_key(&stone) {
-        println!("Get from cache {} result {}", stone, cache.get(&stone).unwrap());
+//        println!("Get from cache {} result {}", stone, cache.get(&stone).unwrap());
         *result += cache.get(&stone).unwrap();
         return
     }
@@ -70,7 +71,7 @@ fn count_stones_cache(level: u32, stone: u64, result: &mut u128, cache: &mut Has
     count_stones_cache(level-1, new_stone, result, cache);
 }
 
-fn day11_2(filename: &str, blinks: u32, nbr_thread: usize) {
+fn day11_2(filename: &str, blinks: u32, nbr_threads: usize) {
     let mut start_stones: Vec<u64> = Vec::new();
     if let Ok(lines) = read_lines(filename) {
         for line in lines.flatten() {
@@ -79,38 +80,54 @@ fn day11_2(filename: &str, blinks: u32, nbr_thread: usize) {
             }
         }
     }
-    let mut result: u128 = start_stones.len() as u128;
-    let mut threads = Vec::with_capacity(nbr_threads);
-    let mut threaded_cache: Vec<HashMap<u64, u128>> = Vec::with_capacity(nbr_thread);
+    let mut total: u128 = start_stones.len() as u128;
     let mut cache: HashMap<u64, u128> = HashMap::new();
+    let (tx, rx) = mpsc::channel();
     for t in 0..nbr_threads {
-        threads.push(thread::spawn(|| {
-            for i in t..8096.step_by(nbr_threads) {
-                let mut cache_result: u128 = 0;
-                count_stones(35, i, &mut cache_result);
-                threaded_cache[t].insert(i, cache_result);
+        let local_t = t.clone();
+        let local_tx = tx.clone();
+        thread::spawn(move || {
+            let mut local_cache: HashMap<u64, u128> = HashMap::new();
+            for i in (local_t..809600).step_by(nbr_threads) {
+                let mut result = 0;
+                println!("{}", i);
+                count_stones(35, i.try_into().unwrap(), &mut result);
+                local_cache.insert(i.try_into().unwrap(), result);
             }
-        }));
+            println!("Finished cache {}", local_t);
+            local_tx.send(local_cache).unwrap();
+        });    
     }
-    for thrd in threads {
-        thrd.join().unwrap();
+    for _ in 0..nbr_threads {
+        cache.extend(rx.recv().unwrap());
+        println!("Got: cache data");
     }
-    for thrd_cch in threaded_cache {
-        cache.extend(thrd_cch);
-    }
+
     println!("Cache created");
-    for stone in start_stones {
-        println!("Count stone {}", stone);
-        count_stones_cache(blinks, stone, &mut result, &mut cache);
+    let (stone_tx, stone_rx) = mpsc::channel();
+    for stone in start_stones.clone() {
+//        let local_stone = stone.clone();
+        let local_tx = stone_tx.clone();
+        let local_cache = cache.clone();
+        let mut result: u128 = 0;
+        thread::spawn(move || {
+            println!("Count stone {}", stone);
+            count_stones_cache(blinks, stone, &mut result, &local_cache);
+            local_tx.send(result).unwrap();
+        });
     }
-    println!("Number of stones {}", result);
+    for _ in 0..start_stones.len() {
+        total += stone_rx.recv().unwrap();
+        println!("Got: result {}", total);
+    }
+    println!("Number of stones {}", total);
 }
 
 fn main() {
     // day11_1("test1.txt", 6);
     // day11_1("test1.txt", 25);
     // day11_1("input.txt", 25);
-    day11_2("input.txt", 75);
+    day11_2("input.txt", 75, 24);
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
