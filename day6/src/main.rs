@@ -157,7 +157,6 @@ fn day6_2(filename: &str) {
         let guard_pos = find_guard(&guard_map).unwrap();
         println!("Found Guard ({},{},{:?})", guard_pos.0, guard_pos.1, guard_pos.2);
         let mut moves = 0;
-        let mut mistery_loops = 0;
         let mut original_path: Vec<(usize,usize)> = Vec::new();
         let mut old_pos = guard_pos; 
         while let Ok(new_pos) = move_guard(&mut guard_map, old_pos) {
@@ -170,7 +169,6 @@ fn day6_2(filename: &str) {
         }
         let pos = count_distinct_positions(&guard_map);
         println!("Distinct positions = {} with moves {}", pos, moves);
-        println!("Mistery loops = {}", mistery_loops);
         let mut mistery_loop_cnt = 0;
         let mut mistery_blocks: Vec<(usize,usize)> = Vec::new();
         for test_pos in original_path {
