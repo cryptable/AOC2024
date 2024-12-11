@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
+use std::thread;
 
 fn count_stones(level: u32, stone: u64, result: &mut u128) {
     if level == 0 {
@@ -69,7 +70,7 @@ fn count_stones_cache(level: u32, stone: u64, result: &mut u128, cache: &mut Has
     count_stones_cache(level-1, new_stone, result, cache);
 }
 
-fn day11_2(filename: &str, blinks: u32) {
+fn day11_2(filename: &str, blinks: u32, nbr_thread: usize) {
     let mut start_stones: Vec<u64> = Vec::new();
     if let Ok(lines) = read_lines(filename) {
         for line in lines.flatten() {
@@ -79,12 +80,23 @@ fn day11_2(filename: &str, blinks: u32) {
         }
     }
     let mut result: u128 = start_stones.len() as u128;
+    let mut threads = Vec::with_capacity(nbr_threads);
+    let mut threaded_cache: Vec<HashMap<u64, u128>> = Vec::with_capacity(nbr_thread);
     let mut cache: HashMap<u64, u128> = HashMap::new();
-    for i in 0..8096 {
-        let mut cache_result: u128 = 0;
-        count_stones(35, i, &mut cache_result);
-        cache.insert(i, cache_result);
-        println!("Cache stone {}", i);
+    for t in 0..nbr_threads {
+        threads.push(thread::spawn(|| {
+            for i in t..8096.step_by(nbr_threads) {
+                let mut cache_result: u128 = 0;
+                count_stones(35, i, &mut cache_result);
+                threaded_cache[t].insert(i, cache_result);
+            }
+        }));
+    }
+    for thrd in threads {
+        thrd.join().unwrap();
+    }
+    for thrd_cch in threaded_cache {
+        cache.extend(thrd_cch);
     }
     println!("Cache created");
     for stone in start_stones {
